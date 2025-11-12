@@ -64,6 +64,9 @@ async def init_rabbitmq_consumer():
         # NOW that we're connected, update the API router with the connection
         set_global_clients(redis_client, rabbit_connection)
         
+        # Start a connection monitor task to keep the connection alive
+        asyncio.create_task(monitor_rabbitmq_connection())
+        
     except AMQPConnectionError as e:
         print(f"🔴 ERROR connecting to RabbitMQ: {e}. Retrying consumer initialization in 10s...")
         rabbit_connection = None
@@ -72,6 +75,26 @@ async def init_rabbitmq_consumer():
     except Exception as e:
         print(f"🔴 Unhandled ERROR during RabbitMQ setup: {e}")
         rabbit_connection = None
+
+async def monitor_rabbitmq_connection():
+    """Monitor RabbitMQ connection and attempt to keep it alive by periodic checks."""
+    while True:
+        try:
+            await asyncio.sleep(30)  # Check every 30 seconds
+            
+            if rabbit_connection and not rabbit_connection.is_closed:
+                # Perform a lightweight operation to keep connection alive
+                # This prevents server-side idle timeouts
+                try:
+                    channel = await rabbit_connection.channel()
+                    # Declare the queue passively (just check it exists)
+                    await channel.queue_declare(PUSH_QUEUE, passive=True)
+                    # Don't print anything to avoid spam, just silently keep alive
+                except Exception as e:
+                    print(f"⚠️ RabbitMQ keepalive check failed: {e}")
+        except Exception as e:
+            print(f"⚠️ Error in RabbitMQ monitor task: {e}")
+            await asyncio.sleep(5)
 
 # --- FastAPI Lifecycle Hooks ---
 
