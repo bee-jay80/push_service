@@ -48,7 +48,9 @@ async def init_rabbitmq_consumer():
 
     global rabbit_connection
     try:
-        rabbit_connection = await connect(RABBITMQ_URL)
+        # Use connection_attempts and heartbeat to maintain stable connection
+        # heartbeat=60 sends keepalive every 60 seconds to prevent idle disconnection
+        rabbit_connection = await connect(RABBITMQ_URL, connection_attempts=3, heartbeat=60)
         channel = await rabbit_connection.channel()
         
         # Set QoS: prefetch_count=1 ensures the worker only takes one message at a time
