@@ -24,7 +24,7 @@ from typing import Dict, Any, Optional
 import json
 
 # Template Service URL (can be set via environment or injected)
-TEMPLATE_SERVICE_URL = os.getenv("TEMPLATE_SERVICE_URL", "http://template_service:8002")
+TEMPLATE_SERVICE_URL = os.getenv("TEMPLATE_SERVICE_URL")
 
 # HTTP client timeout (seconds)
 TEMPLATE_REQUEST_TIMEOUT = 5

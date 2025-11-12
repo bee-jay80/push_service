@@ -59,6 +59,9 @@ async def init_rabbitmq_consumer():
         
         print(f"🟢 RabbitMQ Consumer started successfully on queue: {PUSH_QUEUE}")
         
+        # NOW that we're connected, update the API router with the connection
+        set_global_clients(redis_client, rabbit_connection)
+        
     except AMQPConnectionError as e:
         print(f"🔴 ERROR connecting to RabbitMQ: {e}. Retrying consumer initialization in 10s...")
         await asyncio.sleep(10)
@@ -92,10 +95,8 @@ async def startup_event():
         set_fcm_provider(fcm_provider)
         
     # Start the async consumer logic in a background task
+    # Note: set_global_clients will be called from init_rabbitmq_consumer() once connected
     asyncio.create_task(init_rabbitmq_consumer())
-
-    # Inject client handlers into the API router for health checks
-    set_global_clients(redis_client, rabbit_connection)
 
 
 @app.on_event("shutdown")
