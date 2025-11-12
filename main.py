@@ -78,6 +78,8 @@ async def init_rabbitmq_consumer():
 
 async def monitor_rabbitmq_connection():
     """Monitor RabbitMQ connection and attempt to keep it alive by periodic checks."""
+    global rabbit_connection
+    
     while True:
         try:
             await asyncio.sleep(15)  # Check every 15 seconds (more frequent)
