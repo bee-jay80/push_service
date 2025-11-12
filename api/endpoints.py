@@ -18,6 +18,23 @@ def set_global_clients(r_client: Redis, r_conn: Connection):
     redis_client = r_client
     rabbit_connection = r_conn
 
+
+def set_redis_client(r_client: Redis):
+    """Setter to inject only the Redis client (used during startup before RabbitMQ connects)."""
+    global redis_client
+    redis_client = r_client
+
+
+@router.get("/kaithhealthcheck")
+async def kaithhealthcheck():
+    """Compatibility alias for external probes that hit a non-standard path.
+
+    Some platforms may be configured to probe `/kaithhealthcheck`. This
+    endpoint simply forwards to the main `/health` implementation so probes
+    succeed without changing platform configuration.
+    """
+    return await get_health()
+
 @router.get("/health", response_model=HealthStatus)
 async def get_health():
     """Provides the current health and connection status of the service."""

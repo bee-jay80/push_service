@@ -152,7 +152,11 @@ async def startup_event():
     
     # Inject clients into other modules
     if redis_client:
+        # Make Redis available to API endpoints immediately so health checks
+        # and token registration work even while RabbitMQ is still connecting.
+        from api.endpoints import set_redis_client as api_set_redis
         set_redis_client(redis_client)
+        api_set_redis(redis_client)
     if fcm_provider:
         set_fcm_provider(fcm_provider)
         
