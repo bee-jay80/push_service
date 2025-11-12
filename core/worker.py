@@ -67,6 +67,8 @@ async def process_push_event(message: DeliveredMessage):
     """
     Handles incoming messages from the push.queue. Implements Idempotency and Resilience.
     """
+    print(f"📨 Received message from queue. Delivery tag: {message.delivery_tag}")
+    
     if not redis_client:
         print("❌ Worker Error: Redis client not initialized.")
         await message.channel.basic_reject(message.delivery_tag, requeue=True)
@@ -79,6 +81,7 @@ async def process_push_event(message: DeliveredMessage):
 
     try:
         body = message.body.decode()
+        print(f"📦 Message body: {body[:100]}...")  # Log first 100 chars
         # keep raw dict to support retry counting
         body_json = json.loads(body)
         event = NotificationEvent.model_validate_json(body)
@@ -224,6 +227,8 @@ async def process_push_event(message: DeliveredMessage):
             event_id = event.event_id if 'event' in locals() and getattr(event, 'event_id', None) else 'unknown'
         except Exception:
             event_id = 'unknown'
-        print(f"❌ Critical Failure processing {event_id}: {e}")
+        print(f"❌ Critical Failure processing {event_id}: {type(e).__name__}: {e}")
+        import traceback
+        traceback.print_exc()
         # Reject message, request broker to requeue (True)
         await message.channel.basic_reject(message.delivery_tag, requeue=True)

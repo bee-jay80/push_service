@@ -51,21 +51,42 @@ async def init_rabbitmq_consumer():
         # Connect to RabbitMQ with default parameters
         # The retry loop below will handle reconnection on failure
         rabbit_connection = await connect(RABBITMQ_URL)
+        print(f"📡 RabbitMQ connection established. Connection ID: {id(rabbit_connection)}")
+        
         channel = await rabbit_connection.channel()
+        print(f"📡 RabbitMQ channel created. Channel ID: {id(channel)}")
         
         # Set QoS: prefetch_count=1 ensures the worker only takes one message at a time
         await channel.basic_qos(prefetch_count=1)
+        print(f"📡 QoS set to prefetch_count=1")
         
         # Start consuming from the push.queue
+        print(f"📡 Starting to consume from queue: {PUSH_QUEUE}")
         await channel.basic_consume(PUSH_QUEUE, process_push_event, no_ack=False)
-        
         print(f"🟢 RabbitMQ Consumer started successfully on queue: {PUSH_QUEUE}")
+        print(f"📡 Waiting for messages... Press Ctrl+C to quit.")
         
         # NOW that we're connected, update the API router with the connection
         set_global_clients(redis_client, rabbit_connection)
         
         # Start a connection monitor task to keep the connection alive
         asyncio.create_task(monitor_rabbitmq_connection())
+        
+        # Keep the consumer running indefinitely in a loop
+        # This ensures messages are continuously processed
+        while True:
+            try:
+                await asyncio.sleep(1)  # Yield control to allow message processing
+                if rabbit_connection.is_closed:
+                    print("⚠️ RabbitMQ connection closed. Reinitializing...")
+                    await init_rabbitmq_consumer()
+                    return
+            except asyncio.CancelledError:
+                print("📡 RabbitMQ consumer task cancelled")
+                break
+            except Exception as e:
+                print(f"⚠️ Error in consumer loop: {e}")
+                await asyncio.sleep(1)
         
     except AMQPConnectionError as e:
         print(f"🔴 ERROR connecting to RabbitMQ: {e}. Retrying consumer initialization in 10s...")
@@ -89,9 +110,17 @@ async def monitor_rabbitmq_connection():
                 # This prevents server-side idle timeouts
                 try:
                     channel = await rabbit_connection.channel()
-                    # Declare the queue passively (just check it exists)
-                    await channel.queue_declare(PUSH_QUEUE, passive=True)
-                    # Don't print anything to avoid spam, just silently keep alive
+                    # Declare the queue passively (just check it exists).
+                    # The returned frame contains message_count and consumer_count
+                    # which we log to help verify that a consumer is attached.
+                    q_frame = await channel.queue_declare(PUSH_QUEUE, passive=True)
+                    try:
+                        msg_count = getattr(q_frame, 'message_count', None)
+                        cons_count = getattr(q_frame, 'consumer_count', None)
+                        print(f"📊 Queue '{PUSH_QUEUE}' stats - messages: {msg_count}, consumers: {cons_count}")
+                    except Exception:
+                        # If the frame shape is unexpected, ignore and continue
+                        pass
                 except Exception as e:
                     print(f"⚠️ RabbitMQ keepalive check failed: {e}")
                     rabbit_connection = None
