@@ -5,22 +5,22 @@ from pydantic import BaseModel, Field
 
 
 class NotificationEvent(BaseModel):
-        """Schema for the message consumed from the push.queue.
+    """Schema for the message consumed from the push.queue.
 
-        Notes:
-        - `template_id` and `payload` are made optional to preserve backwards
-            compatibility with messages that contain an inline `payload` but no
-            `template_id`. The worker will resolve a payload using either the
-            provided `template_id` (and variables) or the inline `payload`.
-        - `event_id` and `created_at` are optional and will use sensible defaults
-            if not provided by the publisher.
-        - `user_id` is coerced to int if possible (e.g., from string or int input).
-        """
-        event_id: Optional[UUID] = Field(default_factory=uuid4, description="Unique ID for tracking the notification.")
-        user_id: int | str = Field(description="User identifier; coerced to int if possible.")
-        template_id: Optional[str] = None
-        payload: Optional[dict] = None
-        created_at: Optional[datetime] = Field(default_factory=datetime.utcnow, description="Event creation timestamp; defaults to now.")
+    Notes:
+    - `template_id` and `payload` are made optional to preserve backwards
+        compatibility with messages that contain an inline `payload` but no
+        `template_id`. The worker will resolve a payload using either the
+        provided `template_id` (and variables) or the inline `payload`.
+    - `event_id` and `created_at` are optional and will use sensible defaults
+        if not provided by the publisher.
+    - `user_id` is coerced to int if possible (e.g., from string or int input).
+    """
+    event_id: Optional[UUID] = Field(default_factory=uuid4, description="Unique ID for tracking the notification.")
+    user_id: int | str = Field(description="User identifier; coerced to int if possible.")
+    template_id: Optional[str] = None
+    payload: Optional[dict] = None
+    created_at: Optional[datetime] = Field(default_factory=datetime.utcnow, description="Event creation timestamp; defaults to now.")
 
     def model_post_init(self, __context):
         """Post-validation hook to coerce user_id to int and log defaults used."""
