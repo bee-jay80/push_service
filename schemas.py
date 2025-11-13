@@ -1,5 +1,5 @@
 from datetime import datetime
-from uuid import UUID
+from uuid import UUID, uuid4
 from typing import Optional
 from pydantic import BaseModel, Field
 
@@ -12,12 +12,25 @@ class NotificationEvent(BaseModel):
             compatibility with messages that contain an inline `payload` but no
             `template_id`. The worker will resolve a payload using either the
             provided `template_id` (and variables) or the inline `payload`.
+        - `event_id` and `created_at` are optional and will use sensible defaults
+            if not provided by the publisher.
+        - `user_id` is coerced to int if possible (e.g., from string or int input).
         """
-        event_id: UUID = Field(description="Unique ID for tracking the notification.")
-        user_id: int
+        event_id: Optional[UUID] = Field(default_factory=uuid4, description="Unique ID for tracking the notification.")
+        user_id: int | str = Field(description="User identifier; coerced to int if possible.")
         template_id: Optional[str] = None
         payload: Optional[dict] = None
-        created_at: datetime
+        created_at: Optional[datetime] = Field(default_factory=datetime.utcnow, description="Event creation timestamp; defaults to now.")
+
+    def model_post_init(self, __context):
+        """Post-validation hook to coerce user_id to int and log defaults used."""
+        # Coerce user_id to int if it's a string
+        if isinstance(self.user_id, str):
+            try:
+                self.user_id = int(self.user_id)
+            except (ValueError, TypeError):
+                # If it can't be converted, leave as string and log a warning
+                print(f"⚠️ user_id '{self.user_id}' could not be converted to int; keeping as string")
     
 class TokenValidation(BaseModel):
     token: str = Field(description="Device push token (FCM/APNs).")
